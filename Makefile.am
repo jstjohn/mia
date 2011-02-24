@@ -1,0 +1,7 @@
+SUBDIRS = src man matrices 
+
+
+
+
+
+
