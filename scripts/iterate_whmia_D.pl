@@ -1,10 +1,10 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
 
 use Getopt::Std;
 use vars qw( $opt_r $opt_f $opt_H $opt_m $opt_k $opt_w $opt_M );
 use strict;
-my $whmia_exec = '/home/ed/src/wormhole-mia/mia';
-my $whma_exec  = '/home/ed/src/wormhole-mia/ma';
+my $whmia_exec = `which mia`;
+my $whma_exec  = `which ma`;
 my $ITER_NUM = 1;
 my $MAX_ITER = 30;
 &init();

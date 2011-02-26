@@ -4,3 +4,6 @@ Makefile
 *.so
 *.Po
 *.po
+config.status
+*.log
+
