@@ -4,7 +4,7 @@
 AC_PREREQ(2.61)
 
 define([svnversion], esyscmd([sh -c "svnversion -cn"]))dnl
-AC_INIT([MIA], [1.0], [ed@soe.ucsc.edu])
+AC_INIT([MIA], [1.979], [ed@soe.ucsc.edu])
 AM_INIT_AUTOMAKE
 
 
