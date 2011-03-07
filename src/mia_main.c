@@ -730,7 +730,7 @@ int main( int argc, char* argv[] ) {
   //TODO: begin iteration here
 #pragma omp parallel for\
     shared(frag_fns, good_ids, \
-        seq_code, p64, fkpa, rkpa, \
+        p64, fkpa, rkpa, \
         kmer_filt_len, fw_align, \
         rc_align, ancsubmat, adapter, \
         adapt_align, do_adapter_trimming, \
