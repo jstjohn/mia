@@ -96,5 +96,8 @@ sub init {
     unless( defined( $opt_M ) ) {
 	$opt_M = $whma_exec;
     }
+    unless( defined( $opt_t ) ) {
+	$opt_t = 1;
+    }
 }
     
