@@ -729,7 +729,12 @@ int main( int argc, char* argv[] ) {
 
   //TODO: begin iteration here
 #pragma omp parallel for\
-    default(shared)\
+    shared(frag_fns, good_ids, \
+        seq_code, p64, fkpa, rkpa, \
+        kmer_filt_len, fw_align, \
+        rc_align, ancsubmat, adapter, \
+        adapt_align, do_adapter_trimming, \
+        seen_seqs)\
     private(i,FF,seq_code,\
         frag_seq,test_id,ids_rest,front_pwaln,back_pwaln)\
     schedule(static,1)
