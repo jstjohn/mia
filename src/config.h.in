@@ -3,8 +3,29 @@
 /* Define to 1 if you have the <float.h> header file. */
 #undef HAVE_FLOAT_H
 
+/* Define to 1 if you have the `gzclose' function. */
+#undef HAVE_GZCLOSE
+
+/* Define to 1 if you have the `gzgetc' function. */
+#undef HAVE_GZGETC
+
+/* Define to 1 if you have the `gzopen' function. */
+#undef HAVE_GZOPEN
+
+/* Define to 1 if you have the `gzread' function. */
+#undef HAVE_GZREAD
+
+/* Define to 1 if you have the `gzungetc' function. */
+#undef HAVE_GZUNGETC
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `gomp' library (-lgomp). */
+#undef HAVE_LIBGOMP
+
+/* Define to 1 if you have the `z' library (-lz). */
+#undef HAVE_LIBZ
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
@@ -21,6 +42,9 @@
 
 /* Define to 1 if you have the `memset' function. */
 #undef HAVE_MEMSET
+
+/* Define to 1 if you have the <omp.h> header file. */
+#undef HAVE_OMP_H
 
 /* Define to 1 if you have the `pow' function. */
 #undef HAVE_POW
@@ -51,6 +75,9 @@
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the <zlib.h> header file. */
+#undef HAVE_ZLIB_H
 
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL

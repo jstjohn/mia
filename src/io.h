@@ -19,27 +19,28 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <zlib.h>
 #include "map_align.h"
 
 /* find_input_type
-   Args: 1. FILE* pointer to file to be analyzed
+   Args: 1. gzFile pointer to file to be analyzed
    Returns: sequence code indicating what kind of sequence file
             this is:
 	    0 => fasta
 	    1 => fastq
    Resets the input FILE pointer to the beginning of the file
 */
-  int find_input_type( FILE * FF );
+  int find_input_type( gzFile FF );
 
 /* read_next_seq
-   Args: 1. FILE* pointer to file being read
+   Args: 1. gzFile pointer to file being read
          2. FragSeqP pointer to FragSeq where the next sequence data will go
 	 3. int code indicating which parser to use
    Returns: TRUE if a sequence was read,
             FALSE if EOF
 */
 
-  int read_next_seq( FILE * FF, FragSeqP frag_seq, int seq_code );
+  int read_next_seq( gzFile FF, FragSeqP frag_seq, int seq_code, int p64 );
 
 /* read_fasta
    args 1. pointer to file to be read
@@ -47,7 +48,7 @@ extern "C" {
    returns: TRUE if sequence was read,
             FALSE if EOF or not fasta
 */
-int read_fasta ( FILE * fasta, FragSeqP frag_seq );
+int read_fasta ( gzFile fasta, FragSeqP frag_seq );
 
 /* read_fastq
    Args 1. pointer to file to be read
@@ -56,7 +57,7 @@ int read_fasta ( FILE * fasta, FragSeqP frag_seq );
             FALSE if EOF
 */
 
-int read_fastq ( FILE * fastq, FragSeqP frag_seq );
+int read_fastq ( gzFile fastq, FragSeqP frag_seq, int p64 );
 
 /* calc_qual_sum
    Args: 1. pointer to a string of quality scores for this sequence
@@ -66,7 +67,7 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq );
 */
   inline int calc_qual_sum( const char* qual_str );
 
-
+  int fill_read_list( char ** frag_fns, char *read_list_fn);
 
 /* Read in the reference sequence from fasta file and make reverse complement, too
  * Return 1 success
@@ -87,15 +88,16 @@ int read_fasta_ref(RefSeqP ref, const char* fn);
   /* Reads one pairwise alignment from an Udo Stenzel align
      output file of semi-global alignments against a common
      target sequence (usually chrM) into a PWAlnFrag.
-     Args: FILE* advanced to next pairwise alignment
+     Args: gzFile advanced to next pairwise alignment
      PWAlnFragP to be populated
      Returns 1 if success;
      0 if EOF or failure
      -1 for failure
      */
-  int read_align_aln(FILE* align_f, PWAlnFragP af);
+  int read_align_aln(gzFile align_f, PWAlnFragP af);
   
-  FILE * fileOpen(const char *name, char access_mode[]);
+  gzFile fileOpen(const char *name, char access_mode[]);
+  FILE *fileOpenPlain(const char *name, char access_mode[]);
   
   IDsListP parse_ids(char* fn);
   

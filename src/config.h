@@ -4,8 +4,29 @@
 /* Define to 1 if you have the <float.h> header file. */
 #define HAVE_FLOAT_H 1
 
+/* Define to 1 if you have the `gzclose' function. */
+#define HAVE_GZCLOSE 1
+
+/* Define to 1 if you have the `gzgetc' function. */
+#define HAVE_GZGETC 1
+
+/* Define to 1 if you have the `gzopen' function. */
+#define HAVE_GZOPEN 1
+
+/* Define to 1 if you have the `gzread' function. */
+#define HAVE_GZREAD 1
+
+/* Define to 1 if you have the `gzungetc' function. */
+#define HAVE_GZUNGETC 1
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
+
+/* Define to 1 if you have the `gomp' library (-lgomp). */
+/* #undef HAVE_LIBGOMP */
+
+/* Define to 1 if you have the `z' library (-lz). */
+#define HAVE_LIBZ 1
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
@@ -23,8 +44,11 @@
 /* Define to 1 if you have the `memset' function. */
 #define HAVE_MEMSET 1
 
+/* Define to 1 if you have the <omp.h> header file. */
+#define HAVE_OMP_H 1
+
 /* Define to 1 if you have the `pow' function. */
-/* #undef HAVE_POW */
+#define HAVE_POW 1
 
 /* Define to 1 if stdbool.h conforms to C99. */
 #define HAVE_STDBOOL_H 1
@@ -53,6 +77,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
+/* Define to 1 if you have the <zlib.h> header file. */
+#define HAVE_ZLIB_H 1
+
 /* Define to 1 if the system has the type `_Bool'. */
 #define HAVE__BOOL 1
 
@@ -60,7 +87,7 @@
 #define PACKAGE "mia"
 
 /* Define to the address where bug reports for this package should be sent. */
-#define PACKAGE_BUGREPORT "green@eva.mpg.de"
+#define PACKAGE_BUGREPORT "ed@soe.ucsc.edu"
 
 /* Define to the full name of this package. */
 #define PACKAGE_NAME "MIA"

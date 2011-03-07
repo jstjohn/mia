@@ -1,17 +1,17 @@
 #include "io.h"
 
 /* find_input_type
-   Args: 1. FILE* pointer to file to be analyzed
+   Args: 1. gzFile pointer to file to be analyzed
    Returns: sequence code indicating what kind of sequence file
             this is:
 	    0 => fasta
 	    1 => fastq
    Resets the input FILE pointer to the beginning of the file
-*/
-int find_input_type( FILE * FF ) {
+ */
+int find_input_type( gzFile FF ) {
   char c;
-  c = fgetc( FF );
-  ungetc( c, FF );  
+  c = gzgetc( FF );
+  gzungetc( c, FF );
   if ( c == '@' ) {
     return 1;
   }
@@ -26,18 +26,18 @@ int find_input_type( FILE * FF ) {
 
 
 /* read_next_seq
-   Args: 1. FILE* pointer to file being read
+   Args: 1. gzFile pointer to file being read
          2. FragSeqP pointer to FragSeq where the next sequence data will go
 	 3. int code indicating which parser to use
    Returns: TRUE if a sequence was read,
             FALSE if EOF
-*/
-int read_next_seq( FILE * FF, FragSeqP frag_seq, int seq_code ) {
+ */
+int read_next_seq( gzFile FF, FragSeqP frag_seq, int seq_code, int p64 ) {
   if ( seq_code == 0 ) {
     return read_fasta( FF, frag_seq );
   }
   if ( seq_code == 1 ) {
-    return read_fastq( FF, frag_seq );
+    return read_fastq( FF, frag_seq, p64);
   }
 }
 
@@ -46,11 +46,11 @@ int read_next_seq( FILE * FF, FragSeqP frag_seq, int seq_code ) {
         2. pointer to FragSeq to put the sequence into
    Returns: TRUE if a sequence was read,
             FALSE if EOF
-*/
-int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
+ */
+int read_fastq ( gzFile fastq, FragSeqP frag_seq, int p64 ) {
   char c;
   size_t i;
-  c = fgetc( fastq );
+  c = gzgetc( fastq );
   if ( c == EOF ) return 0;
   if ( c != '@' ) {
     fprintf( stderr, "While reading fastq file, saw record not beginning with @\n" );
@@ -60,8 +60,8 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
 
   /* get identifier */
   i = 0;
-  while( (!isspace(c=fgetc( fastq ) ) &&
-	  (i < MAX_ID_LEN) ) ) {
+  while( (!isspace(c=gzgetc( fastq ) ) &&
+      (i < MAX_ID_LEN) ) ) {
     if ( c == EOF ) {
       return 0;
     }
@@ -81,24 +81,24 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
   }
   else { // some description, uh oh
     while ( (c != '\n') &&
-	    (isspace(c)) ) {
-      c = fgetc( fastq );
+        (isspace(c)) ) {
+      c = gzgetc( fastq );
     }
     i = 0;
     while( (c != '\n') &&
-	   (i < MAX_DESC_LEN) ) {
+        (i < MAX_DESC_LEN) ) {
       frag_seq->desc[i++] = c;
-      c = fgetc( fastq );
+      c = gzgetc( fastq );
     }
     frag_seq->desc[i] = '\0';
   }
 
   /* Now, read the sequence. This should all be on a single line */
   i = 0;
-  c = fgetc( fastq );
+  c = gzgetc( fastq );
   while ( (c != '\n') &&
-	  (c != EOF) &&
-	  (i < INIT_ALN_SEQ_LEN) ) {
+      (c != EOF) &&
+      (i < INIT_ALN_SEQ_LEN) ) {
     if ( isspace(c) ) {
       ;
     }
@@ -106,7 +106,7 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
       c = toupper( c );
       frag_seq->seq[i++] = c;
     }
-    c = fgetc( fastq );
+    c = gzgetc( fastq );
   }
   frag_seq->seq[i] = '\0';
   frag_seq->seq_len = i;
@@ -115,38 +115,39 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
      past this line */
   if ( i == INIT_ALN_SEQ_LEN ) {
     while ( (c != '\n') &&
-	    (c != EOF) ) {
-      c = fgetc( fastq );
+        (c != EOF) ) {
+      c = gzgetc( fastq );
     }
   }
 
   /* Now, read the quality score header */
-  c = fgetc( fastq );
+  c = gzgetc( fastq );
   if ( c != '+' ) {
     fprintf( stderr, "Problem reading quality line for %s\n", frag_seq->id );
     return 1;
   }
   /* Zip through the rest of the line, it should be the same identifier
      as before or blank */
-  c = fgetc( fastq );
+  c = gzgetc( fastq );
   while( (c != '\n') &&
-	 (c != EOF) ) {
-    c = fgetc( fastq );
+      (c != EOF) ) {
+    c = gzgetc( fastq );
   }
 
   /* Now, get the quality score line */
-  c = fgetc( fastq );
+  c = gzgetc( fastq );
   i = 0;
   while( (c != '\n') &&
-	 (c != EOF) &&
-	 (i < INIT_ALN_SEQ_LEN) ) {
+      (c != EOF) &&
+      (i < INIT_ALN_SEQ_LEN) ) {
     if ( isspace(c) ) {
       ;
     }
     else {
-      frag_seq->qual[i++] = c;
+      //make phred-33 and fix illumina's stupid 2->0 thing.
+      frag_seq->qual[i++] = (p64 ? ((c == 'B') ? c - 35: c - 33 ): c);
     }
-    c = fgetc( fastq );
+    c = gzgetc( fastq );
   }
   frag_seq->qual[i] = '\0';
 
@@ -157,14 +158,14 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
      past this line */
   if ( i == INIT_ALN_SEQ_LEN ) {
     while ( (c != '\n') &&
-	    (c != EOF) ) {
-      c = fgetc( fastq );
+        (c != EOF) ) {
+      c = gzgetc( fastq );
     }
   }
 
   if ( i != frag_seq->seq_len ) {
     fprintf( stderr, "%s has unequal sequence and qual line lengths\n", 
-	     frag_seq->id );
+        frag_seq->id );
     return 0;
   }
   return 1;
@@ -175,7 +176,7 @@ int read_fastq ( FILE * fastq, FragSeqP frag_seq ) {
    Returns: 1. int - the sum of quality scores for this sequence
    This assumes that quality scores are represented as the 
    ASCII code + 64
-*/
+ */
 inline int calc_qual_sum( const char* qual_str ) {
   size_t i, len;
   int qual_sum = 0;
@@ -184,7 +185,7 @@ inline int calc_qual_sum( const char* qual_str ) {
   for( i = 0; i < len; i++ ) {
     qual_sum += (qual_str[i] - 33);
   }
-  
+
   return qual_sum;
 }
 
@@ -194,11 +195,11 @@ inline int calc_qual_sum( const char* qual_str ) {
         2. pointer to FragSeq to put the sequence
    returns: TRUE if sequence was read,
             FALSE if EOF or not fasta
-*/
-int read_fasta ( FILE * fasta, FragSeqP frag_seq ) {
+ */
+int read_fasta ( gzFile fasta, FragSeqP frag_seq ) {
   char c;
   size_t i;
-  c = fgetc( fasta );
+  c = gzgetc( fasta );
   if ( c == EOF ) return 0;
   if ( c != '>' ) return 0;
 
@@ -208,8 +209,8 @@ int read_fasta ( FILE * fasta, FragSeqP frag_seq ) {
 
   // get id
   i = 0;
-  while( (!isspace( c=fgetc( fasta ) ) &&
-	  (i < MAX_ID_LEN) ) ) {
+  while( (!isspace( c=gzgetc( fasta ) ) &&
+      (i < MAX_ID_LEN) ) ) {
     if ( c == EOF ) {
       return 0;
     }
@@ -228,26 +229,26 @@ int read_fasta ( FILE * fasta, FragSeqP frag_seq ) {
   }
   else { // not end of line, so skip past the stupid whitespace...
     while( (c != '\n') &&
-	   (isspace(c)) ) {
-      c = fgetc( fasta );
+        (isspace(c)) ) {
+      c = gzgetc( fasta );
     }
     ///...everthing else is description
     i = 0;
-    ungetc( c, fasta );
+    gzungetc( c, fasta );
     while ( (c != '\n') &&
-	    (i < MAX_DESC_LEN) ) {
+        (i < MAX_DESC_LEN) ) {
       frag_seq->desc[i++] = c;
-      c = fgetc( fasta );
+      c = gzgetc( fasta );
     }
     frag_seq->desc[i] = '\0';
   }
 
   // read sequence
   i = 0;
-  c = fgetc( fasta );
+  c = gzgetc( fasta );
   while ( ( c != '>' ) &&
-          ( c != EOF ) &&
-	  (i < INIT_ALN_SEQ_LEN) ) {
+      ( c != EOF ) &&
+      (i < INIT_ALN_SEQ_LEN) ) {
     if ( isspace(c) ) {
       ;
     }
@@ -255,14 +256,14 @@ int read_fasta ( FILE * fasta, FragSeqP frag_seq ) {
       c = toupper( c );
       frag_seq->seq[i++] = c;
     }
-    c = fgetc( fasta );
+    c = gzgetc( fasta );
   }
   frag_seq->seq[i] = '\0';
 
   frag_seq->seq_len = i;
 
   if ( c == '>' ) {
-    ungetc( '>', fasta );
+    gzungetc( '>', fasta );
     return 1;
   }
 
@@ -270,14 +271,14 @@ int read_fasta ( FILE * fasta, FragSeqP frag_seq ) {
      wind through the fasta filehandle, and return this guy */
   if ( i == INIT_ALN_SEQ_LEN ) {
     while ( (c != '>') &&
-	    (c != EOF) ) {
-      c = fgetc( fasta );
+        (c != EOF) ) {
+      c = gzgetc( fasta );
     }
     if ( c == '>' ) {
-      ungetc( '>', fasta );
+      gzungetc( '>', fasta );
     }
     fprintf( stderr, "%s is longer than allowed length: %d\n",
-	     frag_seq->id, INIT_ALN_SEQ_LEN );
+        frag_seq->id, INIT_ALN_SEQ_LEN );
     return 1;
   }
 
@@ -293,7 +294,7 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
   int head_done = 0;
   char c;
   int len, i;
-  FILE* ref_f;
+  gzFile ref_f;
 
   ref->seq = (char*)save_malloc(INIT_REF_SEQ_LEN*sizeof(char));
   ref->size = INIT_REF_SEQ_LEN;
@@ -303,10 +304,10 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
 
   ref_f = fileOpen(fn, "r");
   if (ref_f == NULL)
-      return 0;
+    return 0;
 
 
-  c = fgetc(ref_f);
+  c = gzgetc(ref_f);
   if (c == EOF)
     return 0;
   if (c != '>')
@@ -314,7 +315,7 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
 
   // get id
   len = 0;
-  while ( (!isspace( c=fgetc( ref_f ) )) && !head_done) {
+  while ( (!isspace( c=gzgetc( ref_f ) )) && !head_done) {
     if (c == EOF) {
       return 0;
     }
@@ -339,7 +340,7 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
   // If not, don't care about that crappy whitespace we
   // just got
   else {
-    c = fgetc(ref_f);
+    c = gzgetc(ref_f);
   }
   // But everything else is description
   while ( (c != '\n') && !head_done) {
@@ -353,29 +354,29 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
       ref->desc[len] = '\0';
       head_done = 1;
     }
-    c = fgetc(ref_f);
+    c = gzgetc(ref_f);
   }
   ref->desc[len] = '\0';
 
   // read sequence
   len = 0;
-  c = fgetc(ref_f);
+  c = gzgetc(ref_f);
   while ( (c != '>' ) && (c != EOF )) {
     if ( isspace(c)) {
-      c = fgetc(ref_f);
+      c = gzgetc(ref_f);
     }
     else {
       ref->seq[len] = c;
       len++;
 
       if ( !(len < ref->size)) {
-	ref->seq = grow_seq(ref->seq, ref->size);
-	ref->size = ref->size * 2;
+        ref->seq = grow_seq(ref->seq, ref->size);
+        ref->size = ref->size * 2;
       }
-      c = fgetc(ref_f);
+      c = gzgetc(ref_f);
     }
   }
-  fclose(ref_f);
+  gzclose(ref_f);
 
   ref->seq[ len ] = '\0';
 
@@ -403,6 +404,45 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
   return 1;
 }
 
+/**
+ * reads a list of fastq or fasta file names filling frag_fns
+ * return the number of file names read in
+ * */
+int fill_read_list( char ** frag_fns, char *fn){
+  int num_files = 0;
+  int c_num = 0;
+  char c;
+  gzFile FNAMES;
+  FNAMES = fileOpen(fn, "r");
+  c = gzgetc(FNAMES);
+
+  while (c != EOF) {
+    if (c == '\n') { // just finished a line (ID)
+      frag_fns[num_files][c_num] = '\0';
+      num_files++;
+      c_num = 0;
+      if (num_files >= MAX_INPUT_FILES) {
+        fprintf(stderr,"\nWarning: will not read more than %d fragment files!\n",
+            MAX_INPUT_FILES);
+        break;
+      }
+    } else {
+      if (c_num >= MAX_FN_LEN) {
+        fprintf(stderr,"\nERROR: max file name length for input read files is: %d\n",
+                MAX_FN_LEN);
+        exit(2);
+      } else {
+        frag_fns[num_files][c_num] = c;
+      }
+    }
+    c = gzgetc(FNAMES);
+    c_num++;
+  }
+  gzclose(FNAMES);
+  return num_files;
+}
+
+
 
 /* Reads in a set of scoring matrices for each of the PSSM_DEPTH
    positions at the beginning and end of the sequence that are
@@ -410,9 +450,9 @@ int read_fasta_ref(RefSeqP ref, const char* fn) {
    for everything in the middle.
    Puts these matrices into a PSSM structure.
    Returns a pointer to this structure (PSSMP)
-*/
+ */
 PSSMP read_pssm( const char* fn ) {
-  FILE* MF;
+  gzFile MF;
   PSSMP submat;
   char* line;
   int cur_pos = 0;
@@ -435,17 +475,17 @@ PSSMP read_pssm( const char* fn ) {
     fgets( line, MAX_LINE_LEN, MF );
     if ( strstr( line, "# Matrix for position" ) == NULL ) {
       fprintf( stderr, "Problem parsing matrix file: %s\n",
-	       fn );
+          fn );
       exit( 2 );
     }
 
     for ( base = 0; base <=3; base++ ) {
       fgets( line, MAX_LINE_LEN, MF );
       sscanf( line, "%d\t%d\t%d\t%d",
-	      &submat->sm[cur_pos][base][0],
-	      &submat->sm[cur_pos][base][1],
-	      &submat->sm[cur_pos][base][2],
-	      &submat->sm[cur_pos][base][3] );
+          &submat->sm[cur_pos][base][0],
+          &submat->sm[cur_pos][base][1],
+          &submat->sm[cur_pos][base][2],
+          &submat->sm[cur_pos][base][3] );
       submat->sm[cur_pos][base][4] = N_SCORE; // score for any non-base
     }
     /* ROW of scores for non-base in ref sequence */
@@ -460,16 +500,16 @@ PSSMP read_pssm( const char* fn ) {
   fgets( line, MAX_LINE_LEN, MF );
   if ( strstr( line, "# Matrix for position: MIDDLE" ) == NULL ) {
     fprintf( stderr, "Problem parsing matrix file, MIDDLE is not where expected: %s\n",
-	     fn );
+        fn );
     exit( 2 );
   }
   for ( base = 0; base <=3; base++ ) {
     fgets( line, MAX_LINE_LEN, MF );
     sscanf( line, "%d\t%d\t%d\t%d",
-	    &submat->sm[cur_pos][base][0],
-	    &submat->sm[cur_pos][base][1],
-	    &submat->sm[cur_pos][base][2],
-	    &submat->sm[cur_pos][base][3] );
+        &submat->sm[cur_pos][base][0],
+        &submat->sm[cur_pos][base][1],
+        &submat->sm[cur_pos][base][2],
+        &submat->sm[cur_pos][base][3] );
     submat->sm[cur_pos][base][4] = N_SCORE; // 0 score for any non-base
   }
   /* ROW of scores for non-base in ref sequence */
@@ -483,16 +523,16 @@ PSSMP read_pssm( const char* fn ) {
     fgets( line, MAX_LINE_LEN, MF );
     if ( strstr( line, "# Matrix for position:" ) == NULL ) {
       fprintf( stderr, "Problem parsing matrix file: %s\n",
-	       fn );
+          fn );
       exit( 2 );
     }
     for ( base = 0; base <=3; base++ ) {
       fgets( line, MAX_LINE_LEN, MF );
       sscanf( line, "%d\t%d\t%d\t%d",
-	      &submat->sm[cur_pos][base][0],
-	      &submat->sm[cur_pos][base][1],
-	      &submat->sm[cur_pos][base][2],
-	      &submat->sm[cur_pos][base][3] );
+          &submat->sm[cur_pos][base][0],
+          &submat->sm[cur_pos][base][1],
+          &submat->sm[cur_pos][base][2],
+          &submat->sm[cur_pos][base][3] );
       submat->sm[cur_pos][base][4] = N_SCORE; // 0 score for any non-base
     }
     /* ROW of scores for non-base in ref sequence */
@@ -503,7 +543,7 @@ PSSMP read_pssm( const char* fn ) {
   }
 
   free( line );
-  fclose( MF );
+  gzclose( MF );
   submat->depth = PSSM_DEPTH;
   return submat;
 }
@@ -512,13 +552,13 @@ PSSMP read_pssm( const char* fn ) {
 /* Reads one pairwise alignment from an Udo Stenzel align
  output file of semi-global alignments against a common
  target sequence (usually chrM) into a PWAlnFrag.
- Args: FILE* advanced to next pairwise alignment
+ Args: gzFile advanced to next pairwise alignment
  PWAlnFragP to be populated
  Returns 1 if success;
  0 if EOF or failure
  -1 for failure
  */
-int read_align_aln(FILE* align_f, PWAlnFragP af) {
+int read_align_aln(gzFile align_f, PWAlnFragP af) {
   char c;
   int len, strand, aln_len, i;
   int start_gaps = 0;
@@ -527,20 +567,20 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
 
   /* Skip past anything until we see a line that begins
      with a '>' */
-  c = fgetc(align_f);
+  c = gzgetc(align_f);
   while (c != '>') {
     if (c == EOF) {
       return 0;
     }
     while ( (c != '\n') && (c != EOF)) { // Skip this non >-beginning line
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     }
-    c = fgetc(align_f);
+    c = gzgetc(align_f);
   }
 
   // get ref_id
   len = 0;
-  while ( (!isspace( c=fgetc( align_f ) )) && !head_done) {
+  while ( (!isspace( c=gzgetc( align_f ) )) && !head_done) {
     if (c == EOF) {
       return 0;
     }
@@ -560,7 +600,7 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
 
   // Don't care about that crappy whitespace we
   // just got
-  c = fgetc(align_f);
+  c = gzgetc(align_f);
   // But everything else is description
   while ( (c != '\n') && !head_done) {
     if (c == EOF) {
@@ -573,51 +613,51 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
       af->ref_desc[len] = '\0';
       head_done = 1;
     }
-    c = fgetc(align_f);
+    c = gzgetc(align_f);
   }
   af->ref_desc[len] = '\0';
 
   // read ref_seq
   len = 0;
-  c = fgetc(align_f);
+  c = gzgetc(align_f);
   while ( (c != '>' ) && (c != EOF )) {
     if (c == '\n' || c == ' ') {
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     } else {
       c = toupper(c);
       af->ref_seq[len] = c;
       len++;
 
       if (len > INIT_ALN_SEQ_LEN) {
-	fprintf( stderr, "Aligned sequence %s is too big\n",
-		 af->ref_id);
-	return 0; // Too freakin big
+        fprintf( stderr, "Aligned sequence %s is too big\n",
+            af->ref_id);
+        return 0; // Too freakin big
       }
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     }
   }
   af->ref_seq[ len ] = '\0';
 
   if (c == '>')
-    ungetc( '>', align_f);
+    gzungetc( '>', align_f);
 
   /* Now, get aligned fragment (frag_id, frag_desc, frag_seq) */
   /* Skip past anything until we see a line that begins
      with a '>' */
-  c = fgetc(align_f);
+  c = gzgetc(align_f);
   if (c != '>') {
     if (c == EOF) {
       return 0;
     }
     while ( (c != '\n') && (c != EOF)) { // Skip this non >-beginning line
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     }
-    c = fgetc(align_f);
+    c = gzgetc(align_f);
   }
 
   // get frag_id
   len = 0;
-  while ( (!isspace( c=fgetc( align_f ) )) && !head_done) {
+  while ( (!isspace( c=gzgetc( align_f ) )) && !head_done) {
     if (c == EOF) {
       return 0;
     }
@@ -637,7 +677,7 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
 
   // Don't care about that crappy whitespace we
   // just got
-  c = fgetc(align_f);
+  c = gzgetc(align_f);
   // But everything else is description
   while ( (c != '\n') && !head_done) {
     if (c == EOF) {
@@ -650,52 +690,52 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
       af->frag_desc[len] = '\0';
       head_done = 1;
     }
-    c = fgetc(align_f);
+    c = gzgetc(align_f);
   }
   af->frag_desc[len] = '\0';
 
   // read frag_seq
   len = 0;
-  c = fgetc(align_f);
+  c = gzgetc(align_f);
   // how much gapped sequence at beginning (context sequence)?
   while (c == '-') {
     start_gaps++;
     af->frag_seq[len++] = c;
-    c = fgetc(align_f);
+    c = gzgetc(align_f);
     if (c == '\n' || c == ' ') {
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     }
   }
   while ( (c != '>' ) && (c != EOF )) {
     if (c == '\n' || c == ' ') {
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     } else {
       c = toupper(c);
       af->frag_seq[len++] = c;
 
       if (len > INIT_ALN_SEQ_LEN) {
-	fprintf( stderr, "Aligned sequence %s is too big\n",
-		 af->frag_id);
-	return 0; // Too freakin big
+        fprintf( stderr, "Aligned sequence %s is too big\n",
+            af->frag_id);
+        return 0; // Too freakin big
       }
       // how much gapped sequence at ending (context sequence)?
       if (c == '-') {
-	end_gaps++;
+        end_gaps++;
       } else {
-	end_gaps = 0;
+        end_gaps = 0;
       }
-      c = fgetc(align_f);
+      c = gzgetc(align_f);
     }
   }
   af->frag_seq[ len ] = '\0';
 
   if (c == '>')
-    ungetc( '>', align_f);
+    gzungetc( '>', align_f);
 
   // Check length of aligned sequence
   if ( !(strlen(af->frag_seq) == strlen(af->ref_seq) )) {
     fprintf( stderr, "Cannot use %s: ref and frag alignments are unequal lengths\n",
-	     af->frag_id);
+        af->frag_id);
     // Set score negative so it won't be used
     af->score = -1;
     return 1;
@@ -704,7 +744,7 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
   // Get start, end, strand from pwaln->ref_desc
   if ( !ses_from_align_desc(af, &strand) ) {
     fprintf( stderr, "Problem getting start, end, strand from %s\n",
-	     af->ref_desc);
+        af->ref_desc);
     exit( 1);
   }
 
@@ -712,7 +752,7 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
      and set af->trimmed accordingly */
   if ( !adapt_from_desc(af) ) {
     fprintf( stderr, "Problem learning from %s if adapter was cut, set to not\n",
-	     af->frag_desc);
+        af->frag_desc);
   }
 
   // Do reverse complement of both if minus strand alignment
@@ -760,385 +800,397 @@ int read_align_aln(FILE* align_f, PWAlnFragP af) {
 
 
 void ace_output(MapAlignmentP maln) {
-	int number_of_contigs = 1;
-	char* consensus = get_consensus(maln);
-	int number_of_BS = 1;
-	int number_of_reads = maln->num_aln_seqs;
-	const int QUALITY_SCORE = 40;
-	int number_bases = get_consensus_length(maln);
-	char* contig_name = maln->ref->id;
+  int number_of_contigs = 1;
+  char* consensus = get_consensus(maln);
+  int number_of_BS = 1;
+  int number_of_reads = maln->num_aln_seqs;
+  const int QUALITY_SCORE = 40;
+  int number_bases = get_consensus_length(maln);
+  char* contig_name = maln->ref->id;
 
-	int i, j, line_pos = 0, gaps;
+  int i, j, line_pos = 0, gaps;
 
-	int max_line_length = 50;
-	AlnSeqP aln_seq;
+  int max_line_length = 50;
+  AlnSeqP aln_seq;
 
-	//////////////////////////////////////////// ASSEMBLY INFORMATION (AS) ////////////////////////////////////////////////
-	printf("AS %d %d\n\n", number_of_contigs, number_of_reads + 1); // if we allow repairing we have one (fake) read more
+  //////////////////////////////////////////// ASSEMBLY INFORMATION (AS) ////////////////////////////////////////////////
+  printf("AS %d %d\n\n", number_of_contigs, number_of_reads + 1); // if we allow repairing we have one (fake) read more
 
-	//////////////////////////////////////////// CONTIG INFORMATION (CO) //////////////////////////////////////////////////
-	printf("CO %s %d %d %d %c\n", contig_name, number_bases, number_of_reads + 1,
-			number_of_BS, 'U');
+  //////////////////////////////////////////// CONTIG INFORMATION (CO) //////////////////////////////////////////////////
+  printf("CO %s %d %d %d %c\n", contig_name, number_bases, number_of_reads + 1,
+      number_of_BS, 'U');
 
-	//////////////////////////////////////////// CONSENSUS  ///////////////////////////////////////////////////////////////
-	// print consenus --> padded positions must be * in ace
+  //////////////////////////////////////////// CONSENSUS  ///////////////////////////////////////////////////////////////
+  // print consenus --> padded positions must be * in ace
 
-	char curr_line[max_line_length + 1];
-	for (i = 0; i < number_bases; i++) {
+  char curr_line[max_line_length + 1];
+  for (i = 0; i < number_bases; i++) {
 
-		curr_line[line_pos++] = (consensus[i] == '-') ? '*'
-					: ( (consensus[i] == ' ') ? ('X') : (consensus[i]) );
+    curr_line[line_pos++] = (consensus[i] == '-') ? '*'
+        : ( (consensus[i] == ' ') ? ('X') : (consensus[i]) );
 
-		if (line_pos == max_line_length) {
-			curr_line[line_pos] = '\0';
-			printf("%s\n", curr_line);
-			line_pos = 0;
-		}
-	}
-	curr_line[line_pos] = '\0';
-	printf("%s\n", curr_line);
-	printf("\n");
+    if (line_pos == max_line_length) {
+      curr_line[line_pos] = '\0';
+      printf("%s\n", curr_line);
+      line_pos = 0;
+    }
+  }
+  curr_line[line_pos] = '\0';
+  printf("%s\n", curr_line);
+  printf("\n");
 
-	//////////////////////////////////////////////// BASE QUALITIES //////////////////////////////////////////
-	// Print quality scores (UNPADDED!)
-	printf("BQ\n");
-	for (i = 0; i < number_bases; i++) {
-		if (consensus[i] != '-')
-			printf("%d ", QUALITY_SCORE); // mia has no quality scores -> Maybe I can build something from the coverage informations ...
-		if (i % max_line_length == 0)
-			printf("\n");
-	}
-	printf("\n\n");
+  //////////////////////////////////////////////// BASE QUALITIES //////////////////////////////////////////
+  // Print quality scores (UNPADDED!)
+  printf("BQ\n");
+  for (i = 0; i < number_bases; i++) {
+    if (consensus[i] != '-')
+      printf("%d ", QUALITY_SCORE); // mia has no quality scores -> Maybe I can build something from the coverage informations ...
+    if (i % max_line_length == 0)
+      printf("\n");
+  }
+  printf("\n\n");
 
-	/////////////////////////////////////////////// ORDER OF THE READS (AF) (PADDED!) ////////////////////////////
+  /////////////////////////////////////////////// ORDER OF THE READS (AF) (PADDED!) ////////////////////////////
 
-	printf("AF FAKE_READ-IGNORE_ME U %d\n", 1);
-	for (i = 0; i < number_of_reads; i++) {
-		aln_seq = maln->AlnSeqArray[i];
-		gaps = sum_of_gaps(maln, aln_seq->start); // How many gaps upstream?
-		printf("AF %s %c %d\n", aln_seq->id, (aln_seq->revcom) ? 'C' : 'U',
-				aln_seq->start + gaps+1);
-	}
+  printf("AF FAKE_READ-IGNORE_ME U %d\n", 1);
+  for (i = 0; i < number_of_reads; i++) {
+    aln_seq = maln->AlnSeqArray[i];
+    gaps = sum_of_gaps(maln, aln_seq->start); // How many gaps upstream?
+    printf("AF %s %c %d\n", aln_seq->id, (aln_seq->revcom) ? 'C' : 'U',
+        aln_seq->start + gaps+1);
+  }
 
-	printf("\n");
-
-
-	////////////////////////////////////////////// BASE SEGMENTS (BS) ////////////////////////////////////////////
-	printf("BS 1 %d %s\n", strlen(consensus), "FAKE_READ-IGNORE_ME");
-	printf("\n");
-
-	///////////////////////////////////////////////// PRINT THE READS  (RD) ////////////////////////////////////////
-	int tmp;
-        maln->ref->gaps[maln->ref->seq_len] = 0;
-	for (tmp = 0; tmp < number_of_reads; tmp++) {
-		aln_seq = maln->AlnSeqArray[tmp];
-		int gaps = 0;
-                int n_gaps = 0;
-                int ix = 0;
-                int ins_len = 0;
-                char * ins = NULL;
-
-                //if (aln_seq->end >= maln->ref->seq_len)
-                //    aln_seq->end = maln->ref->seq_len - 1;
-
-               // printf("%d %d %d\n", aln_seq->end, maln->ref->seq_len , maln->ref->gaps[aln_seq->end]);
-
-                /* Find how many gaps are in this region */
-                for (i = aln_seq->start; i <= aln_seq->end; i++) {
-                    gaps += maln->ref->gaps[i];
-                }
-
-		printf("RD %s %d %d %d\n", aln_seq->id,
-				strlen(aln_seq->seq) + gaps, 0, 0);
-		char *sequence = (char*)save_malloc(strlen(aln_seq->seq) + gaps + 1
-				* sizeof(char));
-		j=0;
-		for (i = aln_seq->start; i<= aln_seq->end; i++) {
-			if (maln->ref->gaps[i] > 0) {
-                            if (aln_seq->ins[i - aln_seq->start] != NULL){
-                                ins = aln_seq->ins[i - aln_seq->start];
-                                ins_len = strlen(ins);
-                            }
-                            else
-                                ins_len = 0;
-                            for (n_gaps = 0; n_gaps < maln->ref->gaps[i]; n_gaps++) {
-                                if (n_gaps < ins_len)
-                                    sequence[j++] = ins[n_gaps];
-                                else
-                                    sequence[j++] = '*';
-				}
-
-			}
-			sequence[j++] = aln_seq->seq[i - aln_seq->start];
-		}
-
-		line_pos = 0;
-		for (i = 0; i < j; i++) {
-			curr_line[line_pos++] = (sequence[i] == '-')?'*':sequence[i];
-
-			if (line_pos == max_line_length) {
-				curr_line[line_pos] = '\0';
-				printf("%s\n", curr_line);
-				line_pos = 0;
-			}
-		}
-		curr_line[line_pos] = '\0';
-		printf("%s\n", curr_line);
-		printf("\n");
-
-		printf("QA %d %d %d %d\n", 1, strlen(aln_seq->seq) + gaps, 1,
-				strlen(aln_seq->seq) + gaps);
-
-		printf(
-				"DS CHROMAT_FILE: %s PHD_FILE: %s_FAKE.phd TIME: Tue Feb 21 15:42:35 1984\n\n",
-				aln_seq->id, aln_seq->id);
-
-	}
-
-		printf("RD FAKE_READ-IGNORE_ME %d %d %d\n", number_bases, 0, 0);
-
-		line_pos= 0;
-			for (i = 0; i < number_bases; i++) {
-
-				curr_line[line_pos++] = (consensus[i] == '-') ? '*'
-							: ( (consensus[i] == ' ') ? ('X') : (consensus[i]) );
-
-				if (line_pos == max_line_length) {
-					curr_line[line_pos] = '\0';
-					printf("%s\n", curr_line);
-					line_pos = 0;
-				}
-			}
-			curr_line[line_pos] = '\0';
-			printf("%s\n", curr_line);
-		printf("\n\n");
-		printf("QA %d %d %d %d\n", 1, number_bases, 1, number_bases);
-		printf("DS CHROMAT_FILE: %s PHD_FILE: %s_FAKE.phd TIME: Tue Feb 21 23:23:23 1984\n", "FAKE_READ", "FAKE_READ");
+  printf("\n");
 
 
-	return;
+  ////////////////////////////////////////////// BASE SEGMENTS (BS) ////////////////////////////////////////////
+  printf("BS 1 %d %s\n", strlen(consensus), "FAKE_READ-IGNORE_ME");
+  printf("\n");
+
+  ///////////////////////////////////////////////// PRINT THE READS  (RD) ////////////////////////////////////////
+  int tmp;
+  maln->ref->gaps[maln->ref->seq_len] = 0;
+  for (tmp = 0; tmp < number_of_reads; tmp++) {
+    aln_seq = maln->AlnSeqArray[tmp];
+    int gaps = 0;
+    int n_gaps = 0;
+    int ix = 0;
+    int ins_len = 0;
+    char * ins = NULL;
+
+    //if (aln_seq->end >= maln->ref->seq_len)
+    //    aln_seq->end = maln->ref->seq_len - 1;
+
+    // printf("%d %d %d\n", aln_seq->end, maln->ref->seq_len , maln->ref->gaps[aln_seq->end]);
+
+    /* Find how many gaps are in this region */
+    for (i = aln_seq->start; i <= aln_seq->end; i++) {
+      gaps += maln->ref->gaps[i];
+    }
+
+    printf("RD %s %d %d %d\n", aln_seq->id,
+        strlen(aln_seq->seq) + gaps, 0, 0);
+    char *sequence = (char*)save_malloc(strlen(aln_seq->seq) + gaps + 1
+        * sizeof(char));
+    j=0;
+    for (i = aln_seq->start; i<= aln_seq->end; i++) {
+      if (maln->ref->gaps[i] > 0) {
+        if (aln_seq->ins[i - aln_seq->start] != NULL){
+          ins = aln_seq->ins[i - aln_seq->start];
+          ins_len = strlen(ins);
+        }
+        else
+          ins_len = 0;
+        for (n_gaps = 0; n_gaps < maln->ref->gaps[i]; n_gaps++) {
+          if (n_gaps < ins_len)
+            sequence[j++] = ins[n_gaps];
+          else
+            sequence[j++] = '*';
+        }
+
+      }
+      sequence[j++] = aln_seq->seq[i - aln_seq->start];
+    }
+
+    line_pos = 0;
+    for (i = 0; i < j; i++) {
+      curr_line[line_pos++] = (sequence[i] == '-')?'*':sequence[i];
+
+      if (line_pos == max_line_length) {
+        curr_line[line_pos] = '\0';
+        printf("%s\n", curr_line);
+        line_pos = 0;
+      }
+    }
+    curr_line[line_pos] = '\0';
+    printf("%s\n", curr_line);
+    printf("\n");
+
+    printf("QA %d %d %d %d\n", 1, strlen(aln_seq->seq) + gaps, 1,
+        strlen(aln_seq->seq) + gaps);
+
+    printf(
+        "DS CHROMAT_FILE: %s PHD_FILE: %s_FAKE.phd TIME: Tue Feb 21 15:42:35 1984\n\n",
+        aln_seq->id, aln_seq->id);
+
+  }
+
+  printf("RD FAKE_READ-IGNORE_ME %d %d %d\n", number_bases, 0, 0);
+
+  line_pos= 0;
+  for (i = 0; i < number_bases; i++) {
+
+    curr_line[line_pos++] = (consensus[i] == '-') ? '*'
+        : ( (consensus[i] == ' ') ? ('X') : (consensus[i]) );
+
+    if (line_pos == max_line_length) {
+      curr_line[line_pos] = '\0';
+      printf("%s\n", curr_line);
+      line_pos = 0;
+    }
+  }
+  curr_line[line_pos] = '\0';
+  printf("%s\n", curr_line);
+  printf("\n\n");
+  printf("QA %d %d %d %d\n", 1, number_bases, 1, number_bases);
+  printf("DS CHROMAT_FILE: %s PHD_FILE: %s_FAKE.phd TIME: Tue Feb 21 23:23:23 1984\n", "FAKE_READ", "FAKE_READ");
+
+
+  return;
 }
 
 
 
 /** fileOpen **/
-FILE * fileOpen(const char *name, char access_mode[]) {
-	FILE * f;
-	f = fopen(name, access_mode);
-	if (f == NULL) {
-		fprintf( stderr, "%s\n", name);
-		perror("Cannot open file");
-		return NULL;
-	}
-	return f;
+gzFile fileOpen(const char *name, char access_mode[]) {
+  gzFile f;
+  f = gzopen(name, access_mode);
+  if (f == NULL) {
+    fprintf( stderr, "%s\n", name);
+    perror("Cannot open file");
+    return NULL;
+  }
+  return f;
+}
+
+/** fileOpenPlain **/
+FILE * fileOpenPlain(const char *name, char access_mode[]) {
+  FILE * f;
+  f = fopen(name, access_mode);
+  if (f == NULL) {
+    fprintf( stderr, "%s\n", name);
+    perror("Cannot open file");
+    return NULL;
+  }
+  return f;
 }
 
 void fasta_print_cons(char* cons, char* id) {
-	int len, i, line_pos;
-	char curr_line[FASTA_LINE_WIDTH + 1];
-	len = strlen(cons);
-	printf(">%s\n", id);
-	line_pos = 0;
-	for (i = 0; i < len; i++) {
-		if ( !(cons[i] == '-')) {
-			if (cons[i] == ' ') {
-				curr_line[line_pos++] = 'X';
-			} else {
-				curr_line[line_pos++] = cons[i];
-			}
-			if (line_pos == FASTA_LINE_WIDTH) {
-				curr_line[line_pos] = '\0';
-				printf("%s\n", curr_line);
-				line_pos = 0;
-			}
-		}
-	}
-	curr_line[line_pos] = '\0';
-	printf("%s\n", curr_line);
+  int len, i, line_pos;
+  char curr_line[FASTA_LINE_WIDTH + 1];
+  len = strlen(cons);
+  printf(">%s\n", id);
+  line_pos = 0;
+  for (i = 0; i < len; i++) {
+    if ( !(cons[i] == '-')) {
+      if (cons[i] == ' ') {
+        curr_line[line_pos++] = 'X';
+      } else {
+        curr_line[line_pos++] = cons[i];
+      }
+      if (line_pos == FASTA_LINE_WIDTH) {
+        curr_line[line_pos] = '\0';
+        printf("%s\n", curr_line);
+        line_pos = 0;
+      }
+    }
+  }
+  curr_line[line_pos] = '\0';
+  printf("%s\n", curr_line);
 }
 
 void fasta_aln_print(char* seq, char* id) {
-	int len, i, line_pos;
-	char curr_line[FASTA_LINE_WIDTH + 1];
-	len = strlen(seq);
-	printf(">%s\n", id);
-	line_pos = 0;
-	for (i = 0; i < len; i++) {
-		if (seq[i] == ' ') {
-			curr_line[line_pos++] = 'X';
-		} else {
-			curr_line[line_pos++] = seq[i];
-		}
-		if (line_pos == FASTA_LINE_WIDTH) {
-			curr_line[line_pos] = '\0';
-			printf("%s\n", curr_line);
-			line_pos = 0;
-		}
-	}
-	curr_line[line_pos] = '\0';
-	printf("%s\n", curr_line);
+  int len, i, line_pos;
+  char curr_line[FASTA_LINE_WIDTH + 1];
+  len = strlen(seq);
+  printf(">%s\n", id);
+  line_pos = 0;
+  for (i = 0; i < len; i++) {
+    if (seq[i] == ' ') {
+      curr_line[line_pos++] = 'X';
+    } else {
+      curr_line[line_pos++] = seq[i];
+    }
+    if (line_pos == FASTA_LINE_WIDTH) {
+      curr_line[line_pos] = '\0';
+      printf("%s\n", curr_line);
+      line_pos = 0;
+    }
+  }
+  curr_line[line_pos] = '\0';
+  printf("%s\n", curr_line);
 }
 
 
 void clustalw_print_cons(char* cons, char* aln_ref, char* ref_id) {
-	int len, ln, i, ln_len, ref_id_len;
-	char ref_start[18];
-	char* curr_ref_line;
-	char* curr_cons_line;
-	curr_ref_line = (char*)save_malloc((CLUSTALW_LINE_WIDTH+1) * sizeof(char));
-	curr_cons_line = (char*)save_malloc((CLUSTALW_LINE_WIDTH+1) * sizeof(char));
-	len = strlen(cons);
-	ref_id_len = strlen(ref_id);
-	ln = 0;
+  int len, ln, i, ln_len, ref_id_len;
+  char ref_start[18];
+  char* curr_ref_line;
+  char* curr_cons_line;
+  curr_ref_line = (char*)save_malloc((CLUSTALW_LINE_WIDTH+1) * sizeof(char));
+  curr_cons_line = (char*)save_malloc((CLUSTALW_LINE_WIDTH+1) * sizeof(char));
+  len = strlen(cons);
+  ref_id_len = strlen(ref_id);
+  ln = 0;
 
-	strncpy(ref_start, ref_id, 15);
+  strncpy(ref_start, ref_id, 15);
 
-	for (i = ref_id_len; i < 15; i++) {
-		ref_start[i] = ' ';
-	}
-	ref_start[15] = ' ';
-	ref_start[16] = ' ';
-	ref_start[17] = '\0';
+  for (i = ref_id_len; i < 15; i++) {
+    ref_start[i] = ' ';
+  }
+  ref_start[15] = ' ';
+  ref_start[16] = ' ';
+  ref_start[17] = '\0';
 
-	printf("CLUSTAL W (1.8) multiple sequence alignment\n");
-	while ( (ln * CLUSTALW_LINE_WIDTH) < len) {
-		// First make and print the Reference sequence line
-		strncpy(curr_ref_line, &aln_ref[CLUSTALW_LINE_WIDTH*ln], 60);
-		curr_ref_line[CLUSTALW_LINE_WIDTH] = '\0';
-		printf("%s%s\n", ref_start, curr_ref_line);
+  printf("CLUSTAL W (1.8) multiple sequence alignment\n");
+  while ( (ln * CLUSTALW_LINE_WIDTH) < len) {
+    // First make and print the Reference sequence line
+    strncpy(curr_ref_line, &aln_ref[CLUSTALW_LINE_WIDTH*ln], 60);
+    curr_ref_line[CLUSTALW_LINE_WIDTH] = '\0';
+    printf("%s%s\n", ref_start, curr_ref_line);
 
-		// Then, the consensus
-		strncpy(curr_cons_line, &cons[CLUSTALW_LINE_WIDTH*ln], 60);
-		curr_cons_line[CLUSTALW_LINE_WIDTH] = '\0';
-		// Replace spaces with X, to denote no coverage
-		for (i = 0; i < CLUSTALW_LINE_WIDTH; i++) {
-			if (curr_cons_line[i] == ' ') {
-				curr_cons_line[i] = 'X';
-			}
-		}
-		printf("Consensus        %s\n", curr_cons_line);
+    // Then, the consensus
+    strncpy(curr_cons_line, &cons[CLUSTALW_LINE_WIDTH*ln], 60);
+    curr_cons_line[CLUSTALW_LINE_WIDTH] = '\0';
+    // Replace spaces with X, to denote no coverage
+    for (i = 0; i < CLUSTALW_LINE_WIDTH; i++) {
+      if (curr_cons_line[i] == ' ') {
+        curr_cons_line[i] = 'X';
+      }
+    }
+    printf("Consensus        %s\n", curr_cons_line);
 
-		// Then, the * line where there is agreement
-		ln_len = strlen(curr_cons_line);
-		printf("                 ");
-		for (i = 0; i < ln_len; i++) {
-			if (curr_ref_line[i] == curr_cons_line[i]) {
-				printf("*");
-			} else {
-				printf(" ");
-			}
-		}
-		printf("\n\n\n");
-		ln++;
-	}
-	free(curr_ref_line);
-	free(curr_cons_line);
+    // Then, the * line where there is agreement
+    ln_len = strlen(curr_cons_line);
+    printf("                 ");
+    for (i = 0; i < ln_len; i++) {
+      if (curr_ref_line[i] == curr_cons_line[i]) {
+        printf("*");
+      } else {
+        printf(" ");
+      }
+    }
+    printf("\n\n\n");
+    ln++;
+  }
+  free(curr_ref_line);
+  free(curr_cons_line);
 }
 
 
 void line_print_cons(char* consensus, char* aln_ref, char* ref_id, int* cov) {
-	int len, i;
-	len = strlen(consensus);
-	printf("Consensus, %s, coverage:\n", ref_id);
-	printf("%s\n%s\n", consensus, aln_ref);
+  int len, i;
+  len = strlen(consensus);
+  printf("Consensus, %s, coverage:\n", ref_id);
+  printf("%s\n%s\n", consensus, aln_ref);
 
-	for (i = 0; i < len; i++) {
-		printf("%d ", cov[i]);
-	}
-	printf("\n");
+  for (i = 0; i < len; i++) {
+    printf("%d ", cov[i]);
+  }
+  printf("\n");
 }
 
 void color_print(char* string) {
-	char c = *string++;
-	while (c != '\0') {
-		switch (c) { // insert color codes. see: http://linuxgazette.net/issue65/padala.html
-		// Green background = 42
-		case 'a':
-			;
-		case 'A':
-			printf("\33[37;42m");
-			break; //4
-			// Blue background = 44
-		case 'c':
-			;
-		case 'C':
-			printf("\33[37;44m");
-			break; //4
-			// Black background = 40
-		case 'g':
-			;
-		case 'G':
-			printf("\33[37;40m");
-			break; //4
-			// Red background = 41
-		case 't':
-			;
-		case 'T':
-			printf("\33[37;41m");
-			break; //4
-			// Gray background = 47
-		case '-':
-			printf("\33[47;30m");
-			break; //4
-			// white = 47
-		default:
-			printf("\33[0m");
-		}
+  char c = *string++;
+  while (c != '\0') {
+    switch (c) { // insert color codes. see: http://linuxgazette.net/issue65/padala.html
+    // Green background = 42
+    case 'a':
+    ;
+    case 'A':
+    printf("\33[37;42m");
+    break; //4
+    // Blue background = 44
+    case 'c':
+    ;
+    case 'C':
+    printf("\33[37;44m");
+    break; //4
+    // Black background = 40
+    case 'g':
+    ;
+    case 'G':
+    printf("\33[37;40m");
+    break; //4
+    // Red background = 41
+    case 't':
+    ;
+    case 'T':
+    printf("\33[37;41m");
+    break; //4
+    // Gray background = 47
+    case '-':
+    printf("\33[47;30m");
+    break; //4
+    // white = 47
+    default:
+    printf("\33[0m");
+    }
 
-		printf("%c", c);
-		c = (*string++);
-	}
-	printf("\33[0m\n");
+    printf("%c", c);
+    c = (*string++);
+  }
+  printf("\33[0m\n");
 }
 
 
 IDsListP parse_ids(char* fn) {
-	int i;
-	int id_num = 0;
-	int c_num = 0;
-	IDsListP ids;
-	FILE* IDS;
-	char** ids_array;
-	char* first_id;
-	char c;
-	// First, allocate the IDsList
-	ids = (IDsListP)save_malloc(sizeof(IDsList));
+  int i;
+  int id_num = 0;
+  int c_num = 0;
+  IDsListP ids;
+  gzFile IDS;
+  char** ids_array;
+  char* first_id;
+  char c;
+  // First, allocate the IDsList
+  ids = (IDsListP)save_malloc(sizeof(IDsList));
 
-	ids_array = (char**)save_malloc(INIT_NUM_IDS * sizeof( char* ));
-	first_id = (char*)save_malloc(INIT_NUM_IDS * MAX_ID_LEN * sizeof(char));
+  ids_array = (char**)save_malloc(INIT_NUM_IDS * sizeof( char* ));
+  first_id = (char*)save_malloc(INIT_NUM_IDS * MAX_ID_LEN * sizeof(char));
 
-	for (i = 0; i < INIT_NUM_IDS; i++) {
-		ids_array[i] = &first_id[i*MAX_ID_LEN];
-	}
-	ids->ids = ids_array;
-	ids->size = INIT_NUM_IDS;
-	ids->sorted = 0;
-	/* Parse the file, loading up ids_array with IDs */
-	IDS = fileOpen(fn, "r");
-	c = fgetc(IDS);
-	while (c != EOF) {
-		if (c == '\n') { // just finished a line (ID)
-			ids->ids[id_num++][c_num] = '\0';
-			c_num = 0;
-			if (id_num >= ids->size) {
-				grow_ids_list(ids);
-			}
-		} else {
-			if (c_num >= MAX_ID_LEN) {
-				ids->ids[id_num][c_num] = '\0';
-			} else {
-				ids->ids[id_num][c_num++] = c;
-			}
-		}
-		c = fgetc(IDS);
-	}
-	fclose(IDS);
+  for (i = 0; i < INIT_NUM_IDS; i++) {
+    ids_array[i] = &first_id[i*MAX_ID_LEN];
+  }
+  ids->ids = ids_array;
+  ids->size = INIT_NUM_IDS;
+  ids->sorted = 0;
+  /* Parse the file, loading up ids_array with IDs */
+  IDS = fileOpen(fn, "r");
+  c = gzgetc(IDS);
+  while (c != EOF) {
+    if (c == '\n') { // just finished a line (ID)
+      ids->ids[id_num++][c_num] = '\0';
+      c_num = 0;
+      if (id_num >= ids->size) {
+        grow_ids_list(ids);
+      }
+    } else {
+      if (c_num >= MAX_ID_LEN) {
+        ids->ids[id_num][c_num] = '\0';
+      } else {
+        ids->ids[id_num][c_num++] = c;
+      }
+    }
+    c = gzgetc(IDS);
+  }
+  gzclose(IDS);
 
-	ids->num_ids = id_num;
-	qsort(ids->ids, id_num, sizeof(char* ), idCmp);
-	ids->sorted = 1;
+  ids->num_ids = id_num;
+  qsort(ids->ids, id_num, sizeof(char* ), idCmp);
+  ids->sorted = 1;
 
-	return ids;
+  return ids;
 }
 
 

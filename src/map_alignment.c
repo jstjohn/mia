@@ -287,7 +287,7 @@ int write_ma(char* fn, MapAlignmentP maln) {
     AlnSeqP as;
     PSSMP fpsm, rpsm;
 
-    MAF = fileOpen(fn, "w");
+    MAF = fileOpenPlain(fn, "w");
 
     t = time(NULL);
     //at = (char*) save_malloc(64 * sizeof (char));
@@ -388,7 +388,7 @@ MapAlignmentP read_ma(const char* fn) {
     int tmp, i, as_num, ins_pos, depth, row, A, C, G, T, N;
 
     line = (char*) save_malloc((MAX_LINE_LEN + 1) * sizeof (char));
-    MAF = fileOpen(fn, "r");
+    MAF = fileOpenPlain(fn, "r");
 
     maln = init_map_alignment();
     maln->fpsm = (PSSMP) save_malloc(sizeof (PSSM));

@@ -15,6 +15,7 @@ extern "C" {
 #define DEBUG (0)
 #define CONS_SCHEME (1)
 #define MAX_ID_LEN (64)
+#define MAX_INPUT_FILES (100)
 #define MAX_DESC_LEN (128)
 #define CLUSTALW_LINE_WIDTH (60)
 #define FASTA_LINE_WIDTH (60)

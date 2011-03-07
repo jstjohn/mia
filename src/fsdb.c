@@ -366,7 +366,7 @@ void find_fsdb_score_cut( FSDB fsdb, double* slope, double* intercept ) {
   }
 
   if (DEBUG) {
-    LVSLOG = fileOpen( "LENvSCORE.dat", "w" );
+    LVSLOG = fileOpenPlain( "LENvSCORE.dat", "w" );
     fprintf( LVSLOG,
 	"# Just calculated length-score best-fit line:\n" );
     fprintf( LVSLOG,
@@ -393,7 +393,7 @@ void write_fastq( char* fn, FSDB fsdb ) {
   FILE* f;
   char rc, tr;
   FragSeqP fs;
-  f = fileOpen( fn, "w" );
+  f = fileOpenPlain( fn, "w" );
   size_t i;
   for ( i = 0; i < fsdb->num_fss; i++ ) {
     fs = fsdb->fss[i];
