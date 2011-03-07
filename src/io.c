@@ -418,13 +418,15 @@ int fill_read_list( char ** frag_fns, char *fn){
 
   while (c != EOF) {
     if (c == '\n') { // just finished a line (ID)
-      frag_fns[num_files][c_num] = '\0';
-      num_files++;
-      c_num = 0;
-      if (num_files >= MAX_INPUT_FILES) {
-        fprintf(stderr,"\nWarning: will not read more than %d fragment files!\n",
-            MAX_INPUT_FILES);
-        break;
+      if(c_num > 0){
+        frag_fns[num_files][c_num] = '\0';
+        num_files++;
+        c_num = 0;
+        if (num_files >= MAX_INPUT_FILES) {
+          fprintf(stderr,"\nWarning: will not read more than %d fragment files!\n",
+              MAX_INPUT_FILES);
+          break;
+        }
       }
     } else {
       if (c_num >= MAX_FN_LEN) {

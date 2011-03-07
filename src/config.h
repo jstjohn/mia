@@ -22,9 +22,6 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
-/* Define to 1 if you have the `gomp' library (-lgomp). */
-#define HAVE_LIBGOMP 1
-
 /* Define to 1 if you have the `z' library (-lz). */
 #define HAVE_LIBZ 1
 
@@ -44,11 +41,8 @@
 /* Define to 1 if you have the `memset' function. */
 #define HAVE_MEMSET 1
 
-/* Define to 1 if you have the <omp.h> header file. */
-#define HAVE_OMP_H 1
-
 /* Define to 1 if you have the `pow' function. */
-/* #undef HAVE_POW */
+#define HAVE_POW 1
 
 /* Define to 1 if stdbool.h conforms to C99. */
 #define HAVE_STDBOOL_H 1
@@ -93,19 +87,19 @@
 #define PACKAGE_NAME "MIA"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "MIA 1.0"
+#define PACKAGE_STRING "MIA 1.979"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "mia"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.0"
+#define PACKAGE_VERSION "1.979"
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "1.0"
+#define VERSION "1.979"
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

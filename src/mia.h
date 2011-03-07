@@ -9,7 +9,7 @@
 #include "kmer.h"
 #include "assert.h"
 #include "params.h"
-#include "omp.h"
+//#include "omp.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"

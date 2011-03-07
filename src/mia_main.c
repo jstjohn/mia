@@ -303,7 +303,7 @@ void help( void ) {
   printf( "mia -r <reference sequence>\n" );
   printf( "    -f <fasta or fastq file of fragments to align>\n" );
   printf( "    -L <file with list of fasta or fastq files of fragments to align>\n" );
-  printf( "    -t <number of threads for openmp, only parallelizes the initial alignment now>\n" );
+//  printf( "    -t <number of threads for openmp, only parallelizes the initial alignment now>\n" );
   printf( "    -6 fastq file(s) is/are in phred+64 format? Default is phred+33. \n" );
   printf( "    -s <substitution matrix file> (if not supplied an default matrix is used)\n" );
   printf( "    -m <root file name for maln output file(s)> (assembly.maln.iter)\n" );
@@ -589,7 +589,7 @@ int main( int argc, char* argv[] ) {
     fprintf( stderr, "There seems to be some extra cruff on the command line that mia does not understand.\n" );
   }
   //set the number of threads for omp
-  omp_set_num_threads(threads);
+//  omp_set_num_threads(threads);
   /* Start the clock... */
   curr_time = time(NULL);
   //  c_time = (char*)save_malloc(64*sizeof(char));
@@ -728,7 +728,7 @@ int main( int argc, char* argv[] ) {
 
 
   //TODO: begin iteration here
-#pragma omp parallel for\
+//#pragma omp parallel for\
     shared(frag_fns, good_ids, \
         p64, fkpa, rkpa, \
         kmer_filt_len, fw_align, \
@@ -740,6 +740,7 @@ int main( int argc, char* argv[] ) {
     schedule(static,1)
   for(i=0; i<read_list_len; i++){
     /* Announce that we're starting */
+//#pragma omp critical
     fprintf( stderr,
         "\n...Starting to align %s to the reference...\n",
         frag_fns[i]);
@@ -753,11 +754,13 @@ int main( int argc, char* argv[] ) {
      Align them to the reference. For each fragment generating an
      alignment score better than the cutoff, merge it into the maln
      alignment. Keep track of those that don't, too. */
+//#pragma omp critical
     FF = fileOpen( frag_fns[i], "r" );
     seq_code = find_input_type( FF );
 
     //always pass p64 to read_next_seq, its just ignored in the case of fasta
     while( read_next_seq( FF, frag_seq, seq_code, p64 ) ) {
+//#pragma omp critical
       seen_seqs++;
       strcpy( test_id, frag_seq->id );
       if ( DEBUG ) {

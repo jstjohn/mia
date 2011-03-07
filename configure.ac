@@ -17,7 +17,7 @@ AC_PROG_CXX
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([float.h zlib.h limits.h stdlib.h string.h omp.h math.h])
+AC_CHECK_HEADERS([float.h zlib.h limits.h stdlib.h string.h math.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -30,7 +30,7 @@ AC_HEADER_STDBOOL
 # Checks for library functions.
 AC_FUNC_MALLOC
 AC_CHECK_LIB(z, gzopen)
-AC_CHECK_LIB(gomp, omp_set_num_threads)
+#AC_CHECK_LIB(gomp, omp_set_num_threads)
 AC_CHECK_FUNCS([memset strstr pow gzopen gzread gzgetc gzungetc gzclose])
 
 

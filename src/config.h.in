@@ -21,9 +21,6 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `gomp' library (-lgomp). */
-#undef HAVE_LIBGOMP
-
 /* Define to 1 if you have the `z' library (-lz). */
 #undef HAVE_LIBZ
 
@@ -42,9 +39,6 @@
 
 /* Define to 1 if you have the `memset' function. */
 #undef HAVE_MEMSET
-
-/* Define to 1 if you have the <omp.h> header file. */
-#undef HAVE_OMP_H
 
 /* Define to 1 if you have the `pow' function. */
 #undef HAVE_POW
