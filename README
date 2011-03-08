@@ -1,0 +1,11 @@
+
+
+Here is the configure line I typically use to enable all of c's optomization features:
+./configure --prefix=$HOME CXXFLAGS='-O3 -msse2 -ftree-vectorize -ffast-math' CFLAGS='-O3 -msse2 -ftree-vectorize -ffast-math'
+
+and on some systems I specify a compiler:
+./configure --prefix=$HOME CXXFLAGS='-O3 -msse2 -ftree-vectorize -ffast-math' CFLAGS='-O3 -msse2 -ftree-vectorize -ffast-math' CC=gcc44 CXX=g++44
+
+
+
+

@@ -2224,14 +2224,6 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 ac_config_headers="$ac_config_headers src/config.h"
 
 
-#set default flags
-if test -z CFLAGS; then
-	CFLAGS="-O3"
-fi
-
-if test -z CXXFLAGS; then
-	CXXFLAGS="-O3"
-fi
 
 # Checks for programs.
 ac_ext=c
