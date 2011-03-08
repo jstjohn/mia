@@ -1,4 +1,4 @@
-AM_CFLAGS = -O2
+#AM_CFLAGS = -O2
 
 
 bin_PROGRAMS = mia ma ccheck
