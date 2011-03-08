@@ -11,6 +11,7 @@ AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/config.h.in])
 AC_CONFIG_HEADER([src/config.h])
 
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX

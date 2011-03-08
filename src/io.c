@@ -435,10 +435,10 @@ int fill_read_list( char ** frag_fns, char *fn){
         exit(2);
       } else {
         frag_fns[num_files][c_num] = c;
+        c_num++;
       }
     }
     c = gzgetc(FNAMES);
-    c_num++;
   }
   gzclose(FNAMES);
   return num_files;
